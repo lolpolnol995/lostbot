@@ -15,10 +15,10 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 
 # Администратор и каналы
-ADMIN_ID = int(os.getenv("ADMIN_ID", "1949806346"))
-ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "@Lolpolnol")
-CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME", "@lolpolnol0")
-SECRET_ADMIN_PASS = os.getenv("SECRET_ADMIN_PASS", "JuiHuy657")
+ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "")
+CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME", "")
+SECRET_ADMIN_PASS = os.getenv("SECRET_ADMIN_PASS", "")
 
 # Лимиты
 MAX_RPM = 5                  # Максимум сообщений в минуту
