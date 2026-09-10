@@ -188,9 +188,9 @@ async def handle_admin_reply_to_message(message: Message):
     try:
         support_chat.start_session(target_id)
         user_msg = (
-            f"👨‍💻 <b>С вами на связи разработчик ({ADMIN_USERNAME}):</b>\n\n"
+            "👨‍💻 <b>С вами на связи служба поддержки:</b>\n\n"
             f"{message.text or 'Вам отправлено медиа-вложение.'}\n\n"
-            f"<i>(Вы можете отвечать прямо сюда, ваши сообщения дойдут разработчику напрямую)</i>"
+            "<i>(Вы можете отвечать прямо сюда, ваши сообщения дойдут в поддержку)</i>"
         )
         if message.text:
             await bot.send_message(target_id, user_msg, parse_mode="HTML")
@@ -454,7 +454,7 @@ async def _delayed_process_photos(uid: int, chat_id: int):
         if bugs > 0 and valid_tiktok == 0 and duplicates == 0 and irrelevant == 0:
             await bot.send_message(
                 chat_id,
-                f"✅ <b>Ваш баг-репорт передан разработчику ({ADMIN_USERNAME})!</b>",
+                "✅ <b>Ваш баг-репорт передан в службу поддержки!</b>",
                 parse_mode="HTML"
             )
         elif valid_tiktok >= 5:
@@ -531,7 +531,7 @@ async def handle_video_or_doc(message: Message):
     if uid == ADMIN_ID:
         target = support_chat.get_active_admin_target()
         if target:
-            caption = f"👨‍💻 <b>Разработчик:</b>\n{message.caption or ''}"
+            caption = f"👨‍💻 <b>Служба поддержки:</b>\n{message.caption or ''}"
             if message.video:
                 await bot.send_video(target, message.video.file_id, caption=caption, parse_mode="HTML")
             else:
@@ -547,7 +547,7 @@ async def handle_video_or_doc(message: Message):
             await bot.send_video(ADMIN_ID, message.video.file_id, caption=caption, reply_markup=end_kb, parse_mode="HTML")
         else:
             await bot.send_document(ADMIN_ID, message.document.file_id, caption=caption, reply_markup=end_kb, parse_mode="HTML")
-        return await message.answer("<i>(Файл доставлен разработчику 👨‍💻)</i>", parse_mode="HTML")
+        return await message.answer("<i>(Файл доставлен в службу поддержки 👨‍💻)</i>", parse_mode="HTML")
 
     uname = message.from_user.username or "без username"
     caption = message.caption or "Лог/видео работы приложения"
@@ -569,8 +569,8 @@ async def handle_video_or_doc(message: Message):
         await bot.send_document(ADMIN_ID, message.document.file_id, caption=alert_text, reply_markup=kb, parse_mode="HTML")
         
     await message.answer(
-        f"✅ <b>Вложение успешно передано разработчику ({ADMIN_USERNAME})!</b>\n"
-        f"Спасибо за обратную связь.",
+        "✅ <b>Вложение успешно передано в службу поддержки!</b>\n"
+        "Спасибо за обратную связь.",
         parse_mode="HTML"
     )
 
@@ -589,7 +589,7 @@ async def handle_text(message: Message):
                 try:
                     await bot.send_message(
                         target,
-                        "✅ <b>Диалог с разработчиком завершен.</b>\n"
+                        "✅ <b>Диалог со службой поддержки завершен.</b>\n"
                         "Спасибо за обращение! Если у вас появятся новые вопросы, бот снова готов помочь.",
                         parse_mode="HTML"
                     )
@@ -606,7 +606,7 @@ async def handle_text(message: Message):
         target = support_chat.get_active_admin_target()
         if target:
             try:
-                await bot.send_message(target, f"👨‍💻 <b>Разработчик ({ADMIN_USERNAME}):</b>\n\n{text}", parse_mode="HTML")
+                await bot.send_message(target, f"👨‍💻 <b>Служба поддержки:</b>\n\n{text}", parse_mode="HTML")
                 end_kb = InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="🛑 Завершить диалог", callback_data=f"end_chat:{target}")]
                 ])

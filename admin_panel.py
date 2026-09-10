@@ -1,4 +1,5 @@
 from aiogram import Bot, Router, F
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -185,7 +186,10 @@ async def cb_view_user_chat(call: CallbackQuery):
         ],
         [InlineKeyboardButton(text="🔙 К списку чатов", callback_data="view_chats:0")]
     ]
-    await call.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="HTML")
+    try:
+        await call.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="HTML")
+    except TelegramBadRequest:
+        await call.answer()
 
 import support_chat
 
