@@ -275,14 +275,12 @@ async def process_successful_payment(message: Message):
     uname = message.from_user.username or "без username"
     
     count = 10 if payload == "buy_10_keys" else 15
-    keys = await db.get_available_keys(count)
-    
-    if len(keys) < count:
-        # Если в базе не хватило свободных ключей, берем любые 15 базовых
-        from config import INITIAL_KEYS
-        keys = INITIAL_KEYS[:count]
-        
-    await db.mark_keys_issued(keys, uid)
+    from config import INITIAL_KEYS
+    keys = INITIAL_KEYS[:count] if INITIAL_KEYS else [
+        "Ulb8omSq", "S9oqBJM0", "w4S3Hqn5", "4BKNwi77", "78Hkw9NN",
+        "2BXy8p0W", "9wYGaWn6", "k3X8trbN", "k8P2mX9v", "5TJ7qw1L",
+        "z9R3Ne6M", "p9G4vK1X", "6WR8mz3B", "t2H7yQ5L", "4NJ3sc8P"
+    ][:count]
     
     keys_formatted = "\n".join([f"<code>{k}</code>" for k in keys])
     bonus_text = ""
