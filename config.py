@@ -23,7 +23,7 @@ SECRET_ADMIN_PASS = os.getenv("SECRET_ADMIN_PASS", "")
 # Лимиты
 MAX_RPM = 5                  # Максимум сообщений в минуту
 MAX_DAILY_MESSAGES = 20      # Максимум сообщений в день на пользователя
-SCREENSHOT_BATCH_TIMEOUT = 60 # Таймер ожидания 5 скриншотов (в секундах)
+SCREENSHOT_BATCH_TIMEOUT = 1800 # Таймер ожидания 5 скриншотов (30 минут)
 SCREENSHOT_COOLDOWN = 180     # Кулдаун отправки скриншотов (в секундах)
 LIFETIME_KEY_COOLDOWN_DAYS = 30 # Лимит вечного ключа: 1 в 30 дней на пользователя
 

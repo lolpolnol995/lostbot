@@ -262,10 +262,22 @@ async def add_screenshot_to_session(user_id: int, img_hash: str) -> Tuple[int, b
         hashes.append(img_hash)
         count += 1
         await db.execute("""
-            UPDATE screenshot_sessions SET count = ?, hashes = ? WHERE user_id = ?
-        """, (count, json.dumps(hashes), user_id))
+            UPDATE screenshot_sessions SET count = ?, hashes = ?, started_at = ? WHERE user_id = ?
+        """, (count, json.dumps(hashes), now, user_id))
         await db.commit()
         return count, False, False
+
+async def get_screenshot_session_count(user_id: int) -> int:
+    now = time.time()
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("SELECT count, started_at FROM screenshot_sessions WHERE user_id = ?", (user_id,))
+        row = await cursor.fetchone()
+        if not row:
+            return 0
+        count, started_at = row
+        if (now - started_at) > SCREENSHOT_BATCH_TIMEOUT:
+            return 0
+        return count
 
 async def reset_screenshot_session(user_id: int):
     async with aiosqlite.connect(DB_PATH) as db:

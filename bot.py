@@ -352,14 +352,6 @@ async def handle_photo(message: Message):
                 parse_mode="HTML"
             )
 
-    # Лимиты
-    ok_rpm, err_rpm = limiter.check_rpm_limit(uid)
-    if not ok_rpm:
-        return await message.answer(err_rpm, parse_mode="HTML")
-    ok_day, err_day = await limiter.check_daily_limit(uid)
-    if not ok_day:
-        return await message.answer(err_day, parse_mode="HTML")
-        
     if uid not in _photo_batches:
         _photo_batches[uid] = []
         
@@ -378,9 +370,14 @@ async def _delayed_process_photos(uid: int, chat_id: int):
         if not messages:
             return
             
-        status_msg = await bot.send_message(chat_id, "⏳ <i>Получаю и анализирую присланные скриншоты...</i>", parse_mode="HTML")
+        current_valid = await db.get_screenshot_session_count(uid)
+        status_msg = await bot.send_message(
+            chat_id, 
+            f"⏳ <i>Получаю и анализирую скриншот... (Прогресс: {current_valid}/5)</i>", 
+            parse_mode="HTML"
+        )
         
-        valid_tiktok = 0
+        valid_tiktok = current_valid
         duplicates = 0
         bugs = 0
         irrelevant = 0
@@ -419,6 +416,13 @@ async def _delayed_process_photos(uid: int, chat_id: int):
                     valid_tiktok = 1
                 else:
                     valid_tiktok = count
+                try:
+                    await status_msg.edit_text(
+                        f"⏳ <i>Анализирую скриншот... (Принято: {valid_tiktok}/5)</i>",
+                        parse_mode="HTML"
+                    )
+                except Exception:
+                    pass
             else:
                 irrelevant += 1
                 
@@ -474,7 +478,7 @@ async def _delayed_process_photos(uid: int, chat_id: int):
             res_lines.append(f"• <b>{bugs} фото передано разработчику как баг-репорт</b>")
             
         remaining = 5 - valid_tiktok
-        res_lines.append(f"\n⏳ У вас есть 1 минута, чтобы прислать оставшиеся <b>{remaining}</b> шт.")
+        res_lines.append(f"\n⏳ Прогресс сохранен (<b>{valid_tiktok}/5</b>)! У вас есть 30 минут, чтобы прислать оставшиеся <b>{remaining}</b> шт.")
         await bot.send_message(chat_id, "\n".join(res_lines), parse_mode="HTML")
         
     except asyncio.CancelledError:
