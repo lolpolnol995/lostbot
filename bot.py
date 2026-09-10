@@ -401,7 +401,7 @@ async def _delayed_process_photos(uid: int, chat_id: int):
         ])
         status_msg = await bot.send_message(
             chat_id, 
-            f"⚡️ <i>Быстрый анализ скриншотов... (Прогресс: {current_valid}/5)</i>", 
+            "⏳ <i>Идет анализ скриншотов... Пожалуйста, подождите 1–2 минуты.</i>", 
             reply_markup=cancel_kb,
             parse_mode="HTML"
         )
@@ -425,8 +425,6 @@ async def _delayed_process_photos(uid: int, chat_id: int):
         
         for msg, photo, img_hash, classification in analyzed_items:
             img_type = classification.get("type", "IRRELEVANT")
-            if uid == ADMIN_ID and img_type != "BUG_REPORT":
-                img_type = "TIKTOK_PROOF"
             
             if img_type == "BUG_REPORT":
                 bugs += 1
@@ -453,19 +451,13 @@ async def _delayed_process_photos(uid: int, chat_id: int):
             else:
                 irrelevant += 1
                 
-        try:
-            await status_msg.delete()
-        except Exception:
-            pass
-            
         if bugs > 0 and valid_tiktok == 0 and duplicates == 0 and irrelevant == 0:
-            return await bot.send_message(
+            await bot.send_message(
                 chat_id,
                 f"✅ <b>Ваш баг-репорт передан разработчику ({ADMIN_USERNAME})!</b>",
                 parse_mode="HTML"
             )
-            
-        if valid_tiktok >= 5:
+        elif valid_tiktok >= 5:
             await db.reset_screenshot_session(uid)
             limiter.record_screenshot_batch_sent(uid)
             app_key = await db.get_or_create_app_key(uid)
@@ -488,30 +480,45 @@ async def _delayed_process_photos(uid: int, chat_id: int):
                 f"<code>{k2}</code>\n\n"
                 f"<code>{k3}</code>\n\n"
                 f"<code>{k4}</code> (тоже хороший)\n\n"
-                f"<code>{k5}</code>\n"
+                f"<code>{k5}</code>\n\n"
                 "На крайняк\n"
                 f"<code>{k6}</code>"
             )
-            return await bot.send_message(chat_id, exact_template, parse_mode="HTML")
-            
-        res_lines = ["📊 <b>Результат проверки скриншотов:</b>"]
-        if valid_tiktok > 0:
-            res_lines.append(f"• Принято: <b>{valid_tiktok} из 5</b> (комментарии в TikTok подтверждены)")
-        if duplicates > 0:
-            res_lines.append(f"• Отклонено: <b>{duplicates} дубликат(ов)</b> (повторные скриншоты)")
-        if irrelevant > 0:
-            res_lines.append(f"• Отклонено: <b>{irrelevant} сторонних фото</b> (не распознаны как комментарий TikTok)")
-        if bugs > 0:
-            res_lines.append(f"• <b>{bugs} фото передано разработчику как баг-репорт</b>")
-            
-        remaining = 5 - valid_tiktok
-        res_lines.append(f"\n⏳ Прогресс сохранен (<b>{valid_tiktok}/5</b>)! У вас есть 30 минут, чтобы прислать оставшиеся <b>{remaining}</b> шт.")
-        await bot.send_message(chat_id, "\n".join(res_lines), parse_mode="HTML")
+            await bot.send_message(chat_id, exact_template, parse_mode="HTML")
+        else:
+            res_lines = ["📊 <b>Результат проверки скриншотов:</b>"]
+            if valid_tiktok > 0:
+                res_lines.append(f"• Принято: <b>{valid_tiktok} из 5</b> (комментарии в TikTok подтверждены)")
+            if duplicates > 0:
+                res_lines.append(f"• Отклонено: <b>{duplicates} дубликат(ов)</b> (повторные скриншоты)")
+            if irrelevant > 0:
+                res_lines.append(f"• Отклонено: <b>{irrelevant} сторонних фото</b> (не распознаны как комментарий TikTok)")
+            if bugs > 0:
+                res_lines.append(f"• <b>{bugs} фото передано разработчику как баг-репорт</b>")
+                
+            remaining = 5 - valid_tiktok
+            res_lines.append(f"\n⏳ Прогресс сохранен (<b>{valid_tiktok}/5</b>)! У вас есть 30 минут, чтобы прислать оставшиеся <b>{remaining}</b> шт.")
+            await bot.send_message(chat_id, "\n".join(res_lines), parse_mode="HTML")
+
+        try:
+            await status_msg.delete()
+        except Exception:
+            pass
         
     except asyncio.CancelledError:
         pass
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"Error in batch photo processor: {e}")
+        try:
+            await bot.send_message(chat_id, "⚠️ <b>Произошла ошибка при анализе скриншотов.</b> Пожалуйста, отправьте их еще раз.", parse_mode="HTML")
+        except Exception:
+            pass
+        try:
+            await status_msg.delete()
+        except Exception:
+            pass
     finally:
         _active_analysis_tasks.pop(uid, None)
 

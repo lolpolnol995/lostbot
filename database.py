@@ -188,7 +188,14 @@ async def get_or_create_app_key(user_id: int) -> str:
             return row[0]
             
         new_key = generate_app_key()
-        await db.execute("UPDATE users SET app_activation_key = ? WHERE user_id = ?", (new_key, user_id))
+        if not row:
+            today = datetime.now().strftime("%Y-%m-%d")
+            await db.execute("""
+                INSERT INTO users (user_id, username, daily_messages, last_message_date, app_activation_key)
+                VALUES (?, '', 0, ?, ?)
+            """, (user_id, today, new_key))
+        else:
+            await db.execute("UPDATE users SET app_activation_key = ? WHERE user_id = ?", (new_key, user_id))
         await db.commit()
         return new_key
 
