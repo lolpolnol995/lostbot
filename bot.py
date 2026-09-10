@@ -3,7 +3,8 @@ import io
 import re
 from aiohttp import web
 from aiogram import Bot, Dispatcher, F, types
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
+from aiogram.fsm.context import FSMContext
 from aiogram.types import (
     Message, CallbackQuery, PreCheckoutQuery, LabeledPrice,
     InlineKeyboardMarkup, InlineKeyboardButton
@@ -326,7 +327,7 @@ async def process_successful_payment(message: Message):
 _photo_batches = {}
 _batch_tasks = {}
 
-@dp.message(F.photo)
+@dp.message(F.photo, StateFilter(None))
 async def handle_photo(message: Message):
     uid = message.from_user.id
     
@@ -489,7 +490,7 @@ async def _delayed_process_photos(uid: int, chat_id: int):
         print(f"Error in batch photo processor: {e}")
 
 # --- Обработка видео и файлов логов (как баг-репорты) ---
-@dp.message(F.video | F.document)
+@dp.message(F.video | F.document, StateFilter(None))
 async def handle_video_or_doc(message: Message):
     uid = message.from_user.id
     
@@ -541,7 +542,7 @@ async def handle_video_or_doc(message: Message):
     )
 
 # --- Обработка обычных текстовых сообщений ---
-@dp.message(F.text)
+@dp.message(F.text, StateFilter(None))
 async def handle_text(message: Message):
     uid = message.from_user.id
     text = message.text.strip()
@@ -579,19 +580,6 @@ async def handle_text(message: Message):
                 return await message.answer(f"✅ Доставлено пользователю [ID: <code>{target}</code>]", reply_markup=end_kb, parse_mode="HTML")
             except Exception as e:
                 return await message.answer(f"❌ Ошибка отправки: {e}")
-                
-        # Если админ не в диалоге и это не команда — НЕ ОТПРАВЛЯТЬ В ИИ!
-        if not text.startswith("/"):
-            return await message.answer(
-                "👑 <b>Панель разработчика:</b>\n\n"
-                "• Чтобы ответить пользователю: сделайте Reply на его сообщение или выберите в списке чатов.\n"
-                "• Чтобы открыть админ-панель: отправьте /admin.",
-                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="👑 Панель управления", callback_data="open_admin_panel")],
-                    [InlineKeyboardButton(text="📂 Чаты пользователей", callback_data="view_chats:0")]
-                ]),
-                parse_mode="HTML"
-            )
 
     # 1. Если пользователь находится в прямом диалоге с админом
     if support_chat.is_user_in_session(uid):
