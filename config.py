@@ -32,24 +32,9 @@ STARS_PRICE_10_KEYS = 15     # 10 ключей = 15 Stars
 STARS_PRICE_ALL_KEYS = 25    # Все 15 ключей = 25 Stars
 BONUS_LIFETIME_THRESHOLD = 20 # Порог для получения бонусного вечного ключа
 
-# Базовый пул из 15 уникальных ключей
-INITIAL_KEYS = [
-    "Ulb8omSq",
-    "S9oqBJM0",
-    "w4S3Hqn5",
-    "4BKNwi77",
-    "78Hkw9NN",
-    "2BXy8p0W",
-    "9wYGaWn6",
-    "k3X8trbN",
-    "k8P2mX9v",
-    "5TJ7qw1L",
-    "z9R3Ne6M",
-    "p9G4vK1X",
-    "6WR8mz3B",
-    "t2H7yQ5L",
-    "4NJ3sc8P"
-]
+# Базовый пул ключей (загружается из защищенного окружения)
+_raw_keys = os.getenv("INITIAL_KEYS", "")
+INITIAL_KEYS = [k.strip() for k in _raw_keys.split(",") if k.strip()]
 
 # Закрепленный обучающий пост
 PINNED_POST_TEXT = (
