@@ -441,6 +441,12 @@ async def _delayed_process_photos(uid: int, chat_id: int):
             limiter.record_screenshot_batch_sent(uid)
             app_key = await db.get_or_create_app_key(uid)
             
+            k1 = INITIAL_KEYS[0] if len(INITIAL_KEYS) > 0 else "KEY_1"
+            k2 = INITIAL_KEYS[1] if len(INITIAL_KEYS) > 1 else "KEY_2"
+            k3 = INITIAL_KEYS[2] if len(INITIAL_KEYS) > 2 else "KEY_3"
+            k4 = INITIAL_KEYS[3] if len(INITIAL_KEYS) > 3 else "KEY_4"
+            k5 = INITIAL_KEYS[4] if len(INITIAL_KEYS) > 4 else "KEY_5"
+            k6 = INITIAL_KEYS[5] if len(INITIAL_KEYS) > 5 else "KEY_6"
             exact_template = (
                 "🎉 <b>Задание выполнено! Все 5 скриншотов проверены.</b>\n\n"
                 f"🔑 <b>Ваш ключ активации приложения (20 символов):</b>\n"
@@ -449,13 +455,13 @@ async def _delayed_process_photos(uid: int, chat_id: int):
                 "Ключ навсегда привязывается к вашему устройству.\n\n"
                 "━━━━━━━━━━━━━━━━━━━━\n"
                 "⚡️ <b>Ключи для подбора ВНУТРИ приложения:</b>\n\n"
-                "<code>Ulb8omSq</code> (топ 1)\n\n"
-                "<code>S9oqBJMO</code>\n\n"
-                "<code>w4S3Hqn5</code>\n\n"
-                "<code>4BKNwi77</code> (тоже хороший)\n\n"
-                "<code>78Hkw9NN</code>\n"
+                f"<code>{k1}</code> (топ 1)\n\n"
+                f"<code>{k2}</code>\n\n"
+                f"<code>{k3}</code>\n\n"
+                f"<code>{k4}</code> (тоже хороший)\n\n"
+                f"<code>{k5}</code>\n"
                 "На крайняк\n"
-                "<code>2BXy8p0W</code>"
+                f"<code>{k6}</code>"
             )
             return await bot.send_message(chat_id, exact_template, parse_mode="HTML")
             
