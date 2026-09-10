@@ -2,6 +2,8 @@ import asyncio
 import json
 import base64
 import re
+import io
+from PIL import Image
 import aiohttp
 from typing import Optional, Dict, Any, Tuple
 from config import GEMINI_API_KEY, GEMINI_MODEL, ADMIN_USERNAME, CHANNEL_USERNAME
@@ -111,17 +113,27 @@ async def request_ai_chat(user_text: str, history: list = None) -> Tuple[str, in
     response_text = await future
     return response_text, queue_pos
 
+def optimize_image_for_ai(image_bytes: bytes) -> bytes:
+    try:
+        im = Image.open(io.BytesIO(image_bytes))
+        im.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
+        if im.mode not in ("RGB", "L"):
+            im = im.convert("RGB")
+        out = io.BytesIO()
+        im.save(out, format="JPEG", quality=75, optimize=True)
+        return out.getvalue()
+    except Exception:
+        return image_bytes
+
+classify_semaphore = asyncio.Semaphore(10)
+
 async def request_image_classification(image_bytes: bytes, caption: str = "") -> Tuple[dict, int]:
     """
-    Ставит задачу анализа изображения в очередь к Gemini Vision.
+    Быстрый параллельный анализ изображений (до 10 одновременных потоков).
     """
-    ensure_worker()
-    queue_pos = ai_queue.qsize() + 1
-    future = asyncio.get_event_loop().create_future()
-    task = AIQueueTask("classify_image", {"image_bytes": image_bytes, "caption": caption}, future)
-    await ai_queue.put(task)
-    result = await future
-    return result, queue_pos
+    async with classify_semaphore:
+        result = await _execute_classify_image(image_bytes, caption)
+        return result, 1
 
 async def _execute_chat(user_text: str, history: list) -> str:
     contents = []
@@ -149,6 +161,7 @@ async def _execute_chat(user_text: str, history: list) -> str:
     return "Произошла временная ошибка при обработке запроса нейросетью. Попробуйте еще раз через минуту."
 
 async def _execute_classify_image(image_bytes: bytes, caption: str) -> dict:
+    image_bytes = optimize_image_for_ai(image_bytes)
     b64_img = base64.b64encode(image_bytes).decode('utf-8')
     
     prompt = CLASSIFIER_PROMPT
@@ -164,7 +177,7 @@ async def _execute_classify_image(image_bytes: bytes, caption: str) -> dict:
         }],
         "generationConfig": {
             "temperature": 0.1,
-            "maxOutputTokens": 200
+            "maxOutputTokens": 60
         }
     }
     
@@ -172,6 +185,7 @@ async def _execute_classify_image(image_bytes: bytes, caption: str) -> dict:
     if data and "candidates" in data and len(data["candidates"]) > 0:
         candidate = data["candidates"][0]
         if "content" in candidate and "parts" in candidate["content"]:
+            raw_text = candidate["content"]["parts"][0].get("text", "").strip()
             parsed = None
             # Пытаемся найти JSON-объект в тексте
             m = re.search(r'\{[^{}]*"type"[^{}]*\}', raw_text, re.DOTALL)

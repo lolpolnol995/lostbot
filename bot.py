@@ -326,6 +326,27 @@ async def process_successful_payment(message: Message):
 # --- Обработка медиа (Фото, Скриншоты, Видео, Логи) ---
 _photo_batches = {}
 _batch_tasks = {}
+_active_analysis_tasks = {}
+
+@dp.callback_query(F.data.startswith("cancel_analysis:"))
+async def cb_cancel_analysis(call: CallbackQuery):
+    target_uid = int(call.data.split(":")[1])
+    if call.from_user.id != target_uid and call.from_user.id != ADMIN_ID:
+        return await call.answer("Это не ваш анализ", show_alert=True)
+        
+    task = _active_analysis_tasks.pop(target_uid, None)
+    if task and not task.done():
+        task.cancel()
+        await call.answer("Анализ отменен")
+        try:
+            await call.message.edit_text(
+                "❌ <b>Анализ скриншотов отменен.</b>\nВы можете отправить новые скриншоты в любое удобное время.", 
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
+    else:
+        await call.answer("Анализ уже завершен", show_alert=True)
 
 @dp.message(F.photo, StateFilter(None))
 async def handle_photo(message: Message):
@@ -358,7 +379,7 @@ async def handle_photo(message: Message):
         
     _photo_batches[uid].append(message)
     
-    # Сбрасываем старую отложенную задачу и ждем 1.2 сек, пока придут все фото из пачки
+    # Сбрасываем старую отложенную задачу и ждем 0.6 сек, пока придут все фото из пачки
     if uid in _batch_tasks and not _batch_tasks[uid].done():
         _batch_tasks[uid].cancel()
         
@@ -366,33 +387,43 @@ async def handle_photo(message: Message):
 
 async def _delayed_process_photos(uid: int, chat_id: int):
     try:
-        await asyncio.sleep(1.2)
+        await asyncio.sleep(0.6)
         messages = _photo_batches.pop(uid, [])
         if not messages:
             return
             
+        current_task = asyncio.current_task()
+        _active_analysis_tasks[uid] = current_task
+        
         current_valid = await db.get_screenshot_session_count(uid)
+        cancel_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="❌ Отменить анализ", callback_data=f"cancel_analysis:{uid}")]
+        ])
         status_msg = await bot.send_message(
             chat_id, 
-            f"⏳ <i>Получаю и анализирую скриншот... (Прогресс: {current_valid}/5)</i>", 
+            f"⚡️ <i>Быстрый анализ скриншотов... (Прогресс: {current_valid}/5)</i>", 
+            reply_markup=cancel_kb,
             parse_mode="HTML"
         )
+        
+        # 1. Параллельная загрузка и параллельный анализ через нейросеть
+        async def analyze_single(msg):
+            photo = msg.photo[-1]
+            file_io = io.BytesIO()
+            await bot.download(photo, destination=file_io)
+            img_bytes = file_io.getvalue()
+            img_hash = calculate_image_hash(img_bytes)
+            classification, _ = await ai_service.request_image_classification(img_bytes, msg.caption or "")
+            return msg, photo, img_hash, classification
+
+        analyzed_items = await asyncio.gather(*(analyze_single(m) for m in messages))
         
         valid_tiktok = current_valid
         duplicates = 0
         bugs = 0
         irrelevant = 0
         
-        for msg in messages:
-            photo = msg.photo[-1]
-            file_io = io.BytesIO()
-            await bot.download(photo, destination=file_io)
-            img_bytes = file_io.getvalue()
-            
-            # Локальная проверка дубликатов через dHash (0 затрат токенов API)
-            img_hash = calculate_image_hash(img_bytes)
-            
-            classification, _ = await ai_service.request_image_classification(img_bytes, msg.caption or "")
+        for msg, photo, img_hash, classification in analyzed_items:
             img_type = classification.get("type", "IRRELEVANT")
             if uid == ADMIN_ID and img_type != "BUG_REPORT":
                 img_type = "TIKTOK_PROOF"
@@ -419,13 +450,6 @@ async def _delayed_process_photos(uid: int, chat_id: int):
                     valid_tiktok = 1
                 else:
                     valid_tiktok = count
-                try:
-                    await status_msg.edit_text(
-                        f"⏳ <i>Анализирую скриншот... (Принято: {valid_tiktok}/5)</i>",
-                        parse_mode="HTML"
-                    )
-                except Exception:
-                    pass
             else:
                 irrelevant += 1
                 
@@ -488,6 +512,8 @@ async def _delayed_process_photos(uid: int, chat_id: int):
         pass
     except Exception as e:
         print(f"Error in batch photo processor: {e}")
+    finally:
+        _active_analysis_tasks.pop(uid, None)
 
 # --- Обработка видео и файлов логов (как баг-репорты) ---
 @dp.message(F.video | F.document, StateFilter(None))
