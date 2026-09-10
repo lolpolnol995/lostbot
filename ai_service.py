@@ -60,14 +60,13 @@ CLASSIFIER_PROMPT = f"""
 {{"type": "TIKTOK_PROOF" | "BUG_REPORT" | "IRRELEVANT", "reason": "краткое объяснение на русском"}}
 """
 
-MODELS_TO_TRY = [GEMINI_MODEL]
-for m in ["gemini-2.5-flash", "gemini-flash-latest"]:
-    if m not in MODELS_TO_TRY:
-        MODELS_TO_TRY.append(m)
+MODELS_TO_TRY = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-flash-lite-latest"]
+if GEMINI_MODEL not in MODELS_TO_TRY:
+    MODELS_TO_TRY.insert(0, GEMINI_MODEL)
 
 async def call_gemini_api(payload: dict) -> Optional[dict]:
     headers = {"Content-Type": "application/json"}
-    timeout = aiohttp.ClientTimeout(total=20)
+    timeout = aiohttp.ClientTimeout(total=35, connect=10)
     async with aiohttp.ClientSession(timeout=timeout) as session:
         for model in MODELS_TO_TRY:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_API_KEY}"

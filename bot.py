@@ -13,7 +13,7 @@ from aiogram.enums import ParseMode
 
 from config import (
     BOT_TOKEN, ADMIN_ID, ADMIN_USERNAME, CHANNEL_USERNAME, SECRET_ADMIN_PASS,
-    STARS_PRICE_10_KEYS, STARS_PRICE_ALL_KEYS, PINNED_POST_TEXT
+    STARS_PRICE_10_KEYS, STARS_PRICE_ALL_KEYS, PINNED_POST_TEXT, INITIAL_KEYS
 )
 import database as db
 import limiter
