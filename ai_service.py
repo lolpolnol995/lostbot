@@ -57,20 +57,27 @@ CLASSIFIER_PROMPT = f"""
 {{"type": "TIKTOK_PROOF" | "BUG_REPORT" | "IRRELEVANT", "reason": "кратко почему"}}
 """
 
+MODELS_TO_TRY = [GEMINI_MODEL]
+for m in ["gemini-2.5-flash", "gemini-flash-latest"]:
+    if m not in MODELS_TO_TRY:
+        MODELS_TO_TRY.append(m)
+
 async def call_gemini_api(payload: dict) -> Optional[dict]:
     headers = {"Content-Type": "application/json"}
-    async with aiohttp.ClientSession() as session:
-        try:
-            async with session.post(GEMINI_URL, json=payload, headers=headers, timeout=25) as resp:
-                if resp.status == 200:
-                    return await resp.json()
-                else:
-                    err_text = await resp.text()
-                    print(f"Gemini API error ({resp.status}): {err_text}")
-                    return None
-        except Exception as e:
-            print(f"Gemini request exception: {e}")
-            return None
+    timeout = aiohttp.ClientTimeout(total=20)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        for model in MODELS_TO_TRY:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_API_KEY}"
+            try:
+                async with session.post(url, json=payload, headers=headers) as resp:
+                    if resp.status == 200:
+                        return await resp.json()
+                    else:
+                        err_text = await resp.text()
+                        print(f"Gemini API error for {model} ({resp.status}): {err_text[:200]}")
+            except Exception as e:
+                print(f"Gemini request exception for {model}: {type(e).__name__} {e}")
+    return None
 
 class AIQueueTask:
     def __init__(self, task_type: str, data: dict, future: asyncio.Future):
