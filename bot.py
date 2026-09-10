@@ -393,6 +393,8 @@ async def _delayed_process_photos(uid: int, chat_id: int):
             
             classification, _ = await ai_service.request_image_classification(img_bytes, msg.caption or "")
             img_type = classification.get("type", "IRRELEVANT")
+            if uid == ADMIN_ID and img_type != "BUG_REPORT":
+                img_type = "TIKTOK_PROOF"
             
             if img_type == "BUG_REPORT":
                 bugs += 1

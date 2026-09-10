@@ -35,21 +35,24 @@ SYSTEM_PROMPT = f"""
 """
 
 CLASSIFIER_PROMPT = f"""
-Ты — модератор проверки скриншотов для бота LostBot Pro.
-Проанализируй предоставленное изображение и определи категорию:
+Ты — модератор скриншотов задания для Telegram-бота LostBot Pro.
+Пользователь выполняет задание: оставляет комментарий в приложении TikTok со ссылкой или упоминанием канала @lolpolnol0 и присылает скриншот для получения ключа.
 
-1. "TIKTOK_PROOF" — скриншот из приложения TikTok (или веб-версии, лента видео, профиль или блок комментариев).
-На скриншоте виден комментарий или текст с упоминанием канала/автора:
-- @lolpolnol0, lolpolnol0, lolpolnol, lolpolno10, @lolpolnol, лолполнол
-- либо любое упоминание Telegram-канала lolpolnol0 (например "тг @lolpolnol0", "в тг lolpolnol0", "канал lolpolnol0").
-ВАЖНО: Будь максимально лоялен! Если это интерфейс комментариев TikTok и видно похожее упоминание автора (даже мелким шрифтом, с опечаткой в 1 букву, или без знака @) — СТРОГО выбирай "TIKTOK_PROOF".
+Определи категорию скриншота:
 
-2. "BUG_REPORT" — скриншот ошибки, вылета приложения (Crash), экрана с ошибкой подключения, стек-трейса, бага в интерфейсе приложения или видео/фото с демонстрацией сбоя.
+1. "TIKTOK_PROOF" (ОДОБРЕНО):
+- Любой скриншот приложения TikTok (окно комментариев, ветка ответов, поле ввода, профиль или видео);
+- Присутствует ЛЮБОЕ упоминание автора, канала или бота (например: lolpolnol, lolpolnol0, @lolpolnol0, лолполнол, полнол, lostbot, тг, telegram, канал, ссылка);
+- ПРАВИЛО МАКСИМАЛЬНОЙ ЛОЯЛЬНОСТИ: Если на картинке виден интерфейс приложения TikTok (иконки, комментарии, поле ввода) — ВСЕГДА ВЫБИРАЙ "TIKTOK_PROOF". Не придирайся к качеству, шрифтам или опечаткам. Если человек открыл TikTok и прислал скриншот — засчитывай!
 
-3. "IRRELEVANT" — совершенно постороннее изображение: мем, скриншот игры, фото человека/животного/еды без отношения к TikTok-комментариям или багам.
+2. "BUG_REPORT":
+Скриншот ошибки приложения LostBot (Crash, белый экран, ошибка подключения, стек-трейс).
 
-Ответь СТРОГО в формате валидного JSON без обрамления markdown:
-{{"type": "TIKTOK_PROOF" | "BUG_REPORT" | "IRRELEVANT", "reason": "краткое описание на русском почему сделан такой вывод"}}
+3. "IRRELEVANT":
+ТОЛЬКО если на картинке ВООБЩЕ нет отношения к TikTok или боту (например: фото животного, природы, скриншот другой игры Brawl Stars/Roblox, мем).
+
+Ответь СТРОГО в формате чистого JSON:
+{{"type": "TIKTOK_PROOF" | "BUG_REPORT" | "IRRELEVANT", "reason": "кратко почему"}}
 """
 
 async def call_gemini_api(payload: dict) -> Optional[dict]:
@@ -169,29 +172,41 @@ async def _execute_classify_image(image_bytes: bytes, caption: str) -> dict:
     if data and "candidates" in data and len(data["candidates"]) > 0:
         candidate = data["candidates"][0]
         if "content" in candidate and "parts" in candidate["content"]:
-            raw_text = candidate["content"]["parts"][0].get("text", "").strip()
+            parsed = None
             # Пытаемся найти JSON-объект в тексте
             m = re.search(r'\{[^{}]*"type"[^{}]*\}', raw_text, re.DOTALL)
             if m:
                 try:
-                    return json.loads(m.group(0))
+                    parsed = json.loads(m.group(0))
                 except Exception:
                     pass
-            # Очищаем от возможных markdown обрамлений ```json ... ```
-            clean_text = raw_text
-            if "```" in clean_text:
-                parts = clean_text.split("```")
-                if len(parts) > 1:
-                    clean_text = parts[1]
-                    if clean_text.startswith("json"):
-                        clean_text = clean_text[4:]
-            try:
-                parsed = json.loads(clean_text.strip())
-                return parsed
-            except Exception as e:
-                # Если в тексте прямо упомянут TIKTOK_PROOF или proof
-                if "TIKTOK_PROOF" in raw_text:
-                    return {"type": "TIKTOK_PROOF", "reason": "Упоминание канала подтверждено"}
-                print(f"Error parsing Gemini classifier json: {e}, raw: {raw_text}")
+            if not parsed:
+                clean_text = raw_text
+                if "```" in clean_text:
+                    parts = clean_text.split("```")
+                    if len(parts) > 1:
+                        clean_text = parts[1]
+                        if clean_text.startswith("json"):
+                            clean_text = clean_text[4:]
+                try:
+                    parsed = json.loads(clean_text.strip())
+                except Exception:
+                    pass
+
+            if not parsed:
+                if "TIKTOK_PROOF" in raw_text or "tiktok" in raw_text.lower():
+                    parsed = {"type": "TIKTOK_PROOF", "reason": "Упоминание TikTok подтверждено"}
+                else:
+                    parsed = {"type": "IRRELEVANT", "reason": "Не удалось распознать изображение."}
+
+            # АВТО-ПЕРЕХОД: если на скриншоте распознан TikTok, но AI по ошибке поставил IRRELEVANT
+            if parsed.get("type") != "TIKTOK_PROOF" and parsed.get("type") != "BUG_REPORT":
+                check_str = (str(parsed.get("reason", "")) + " " + raw_text).lower()
+                tiktok_keywords = ["tiktok", "тикток", "комментар", "коммент", "видео", "соцсет", "интерфейс", "шторк", "упоминани", "lolpolnol", "полнол", "тг", "lostbot"]
+                if any(kw in check_str for kw in tiktok_keywords):
+                    parsed["type"] = "TIKTOK_PROOF"
+                    parsed["reason"] = "Скриншот интерфейса TikTok принят"
+
+            return parsed
                 
     return {"type": "IRRELEVANT", "reason": "Не удалось распознать изображение."}
