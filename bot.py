@@ -155,7 +155,7 @@ async def cmd_admin(message: Message):
 
 @dp.message(F.text.lower() == SECRET_ADMIN_PASS.lower())
 async def handle_admin_secret(message: Message):
-    # Кодовое слово JuiHuy657
+    # Вход по кодовому слову админа
     await show_admin_panel(message, bot)
 
 # --- Команда добавления ключей /addkeys ---

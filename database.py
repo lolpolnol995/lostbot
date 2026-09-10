@@ -3,7 +3,7 @@ import json
 import time
 from datetime import datetime, timedelta
 from typing import List, Tuple, Optional
-from config import INITIAL_KEYS, MAX_DAILY_MESSAGES, LIFETIME_KEY_COOLDOWN_DAYS, SCREENSHOT_BATCH_TIMEOUT
+from config import INITIAL_KEYS, MAX_DAILY_MESSAGES, LIFETIME_KEY_COOLDOWN_DAYS, SCREENSHOT_BATCH_TIMEOUT, SECRET_ADMIN_PASS
 
 DB_PATH = "lostbot.db"
 
@@ -335,7 +335,8 @@ async def verify_and_bind_app_key(key: str, device_id: str) -> Tuple[bool, str]:
                 return False, "❌ Ошибка: этот ключ уже привязан к другому устройству!"
                 
         from key_generator import verify_app_key
-        is_valid = verify_app_key(key) or key in ["JuiHuy657LOSTBOT2026", "LOSTBOT-PRO-ACTIVATION"]
+        master_key = (SECRET_ADMIN_PASS + "LOSTBOT2026") if SECRET_ADMIN_PASS else None
+        is_valid = verify_app_key(key) or (master_key and key == master_key) or key == "LOSTBOT-PRO-ACTIVATION"
         if not is_valid:
             cursor = await db.execute("SELECT user_id FROM users WHERE app_activation_key = ?", (key,))
             if await cursor.fetchone():
